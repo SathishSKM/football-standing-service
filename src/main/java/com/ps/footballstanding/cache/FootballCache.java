@@ -10,25 +10,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/**
- * Dedicated cache component — owns all @Cacheable / @CachePut operations.
- *
- * Pattern:
- *   getCachedXxx()  — @Cacheable: returns cached value on HIT, null on MISS
- *   cacheXxx()      — @CachePut : always stores the supplied value into cache
- *
- * Cache names and keys:
- *   "countries"  key = "all"        (single global list)
- *   "leagues"    key = countryId
- *   "standings"  key = leagueId
- *
- * TTL and max-size are configured in AppConfig (Caffeine CacheManager).
- */
 @Slf4j
 @Component
 public class FootballCache {
-
-    // ── Countries ─────────────────────────────────────────────────────────────
 
     @Cacheable(value = "countries", key = "'all'", unless = "#result == null")
     public List<Country> getCachedCountries() {
@@ -42,8 +26,6 @@ public class FootballCache {
         return countries;
     }
 
-    // ── Leagues ───────────────────────────────────────────────────────────────
-
     @Cacheable(value = "leagues", key = "#countryId", unless = "#result == null")
     public List<League> getCachedLeagues(String countryId) {
         log.info("Cache MISS — leagues not cached for countryId={}", countryId);
@@ -56,7 +38,6 @@ public class FootballCache {
         return leagues;
     }
 
-    // ── Standings ─────────────────────────────────────────────────────────────
 
     @Cacheable(value = "standings", key = "#leagueId", unless = "#result == null")
     public List<Standing> getCachedStandings(String leagueId) {

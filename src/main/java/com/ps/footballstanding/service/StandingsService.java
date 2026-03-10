@@ -11,11 +11,9 @@ import com.ps.footballstanding.dto.StandingResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 
@@ -39,26 +37,27 @@ public class StandingsService {
 
     public List<Country> getCountries(boolean offlineMode) {
 
-        // 1. Always try cache first
-        List<Country> cached = footballCache.getCachedCountries();
-        if (cached != null) {
-            log.debug("getCountries: serving from cache (offlineMode={})", offlineMode);
-            return cached;
+        try {
+            List<Country> countriesFromCache = footballCache.getCachedCountries();
+            if (countriesFromCache != null) {
+                log.debug("getCountries: serving from cache (offlineMode={})", offlineMode);
+                return countriesFromCache;
+            }
+        } catch (Exception e) {
+            log.warn("getCountries: cache error ({}), falling back to API", e.getMessage());
         }
 
-        // 2. Offline — cache miss means no data available, use static
         if (offlineMode) {
             log.info("getCountries: offline + cache miss — using static data");
             return staticDataLoader.getCountries();
         }
 
-        // 3. Online — call live API, cache result
         try {
-            List<Country> live = footballClient.getCountries();
-            footballCache.cacheCountries(live);
-            return live;
+            List<Country> countries = footballClient.getCountries();
+            footballCache.cacheCountries(countries);
+            return countries;
         } catch (Exception e) {
-            log.warn("getCountries: live API failed ({}), using static data", e.getMessage());
+            log.warn("getCountries: client API failed ({}), using static data", e.getMessage());
             return staticDataLoader.getCountries();
         }
     }
@@ -66,26 +65,29 @@ public class StandingsService {
     public List<League> getLeaguesByCountry(String countryId, Boolean offlineMode) {
 
 
-        if (countryId == null) return List.of();
-
-        // 1. Try cache
-        List<League> cached = footballCache.getCachedLeagues(countryId);
-        if (cached != null) {
-            log.debug("getLeagues: serving from cache for countryId={}", countryId);
-            return cached;
+        if (countryId == null) {
+            return List.of();
         }
 
-        // 2. Offline — no cache, use static
+        try {
+            List<League> LeaguesFromCache = footballCache.getCachedLeagues(countryId);
+            if (LeaguesFromCache != null) {
+                log.debug("getLeaguesByCountry: serving from cache (offlineMode={})", offlineMode);
+                return LeaguesFromCache;
+            }
+        } catch (Exception e) {
+            log.warn("getLeaguesByCountry: cache error ({}), falling back to API", e.getMessage());
+        }
+
         if (offlineMode) {
             log.info("getLeagues: offline + cache miss — using static data for countryId={}", countryId);
             return staticDataLoader.getLeagues(countryId);
         }
 
-        // 3. Live API, cache result
         try {
-            List<League> live = footballClient.getLeaguesByCountry(countryId);
-            footballCache.cacheLeagues(countryId, live);
-            return live;
+            List<League> leagues = footballClient.getLeaguesByCountry(countryId);
+            footballCache.cacheLeagues(countryId, leagues);
+            return leagues;
         } catch (Exception e) {
             log.warn("getLeagues: live API failed ({}), using static data", e.getMessage());
             return staticDataLoader.getLeagues(countryId);
@@ -94,9 +96,7 @@ public class StandingsService {
 
     public List<StandingResponse> getStandings(String countryId, String leagueId, String team, boolean offlineMode) {
 
-
-        // 2. Get leagues for country, filter by league name if provided
-        List<League> allLeagues = getLeaguesById(countryId, offlineMode);
+        List<League> allLeagues = getLeaguesByCountry(countryId, offlineMode);
         List<League> targetLeagues = (leagueId == null || leagueId.isBlank())
                 ? allLeagues
                 : allLeagues.stream()
@@ -108,7 +108,6 @@ public class StandingsService {
             return List.of();
         }
 
-        // 3. Fetch standings per league, map to DTO, filter by team if provided
         return targetLeagues.stream()
                 .flatMap(l -> fetchStandingsForLeague(l.getLeagueId(), offlineMode).stream())
                 .filter(s -> team == null || team.isBlank()
@@ -117,65 +116,71 @@ public class StandingsService {
 
     }
 
-
-    /** Used internally by getStandings — bypasses country-name resolution. */
-    private List<League> getLeaguesById(String countryId, boolean offlineMode) {
-        List<League> cached = footballCache.getCachedLeagues(countryId);
-        if (cached != null) return cached;
-
-        if (offlineMode) return staticDataLoader.getLeagues(countryId);
-
-        try {
-            List<League> live = footballClient.getLeaguesByCountry(countryId);
-            footballCache.cacheLeagues(countryId, live);
-            return live;
-        } catch (Exception e) {
-            log.warn("getLeaguesById: live API failed for countryId={}", countryId);
-            return staticDataLoader.getLeagues(countryId);
-        }
-    }
-
     private List<StandingResponse> fetchStandingsForLeague(String leagueId, boolean offlineMode) {
-        List<Standing> raw;
-        boolean usedOffline;
 
-        if (!offlineMode) {
-            // ── Online: live API first → on failure fall back to cache → then static
-            try {
-                raw = footballClient.getStandings(leagueId);
-                footballCache.cacheStandings(leagueId, raw);   // refresh cache on success
-                usedOffline = false;
-            } catch (Exception e) {
-                log.warn("fetchStandings: live API failed for leagueId={}, trying cache", leagueId);
-                List<Standing> cached = footballCache.getCachedStandings(leagueId);
-                if (cached != null) {
-                    log.info("fetchStandings: serving stale cache for leagueId={}", leagueId);
-                    raw = cached;
-                } else {
-                    log.warn("fetchStandings: cache empty for leagueId={}, using static data", leagueId);
-                    raw = staticDataLoader.getStandings(leagueId);
-                }
-                usedOffline = true;
-            }
+        List<Standing> standings;
+
+        if (offlineMode) {
+            standings = getStandingsFromCacheOrStatic(leagueId);
         } else {
-            // ── Offline: cache first → on miss fall back to static
-            List<Standing> cached = footballCache.getCachedStandings(leagueId);
-            if (cached != null) {
-                log.info("fetchStandings: offline — serving from cache for leagueId={}", leagueId);
-                raw = cached;
-            } else {
-                log.info("fetchStandings: offline + cache miss — using static data for leagueId={}", leagueId);
-                raw = staticDataLoader.getStandings(leagueId);
-            }
-            usedOffline = true;
+            standings = getStandingsFromClientCacheOrStatic(leagueId);
         }
 
-        final boolean flagOffline = usedOffline;
-        return raw.stream()
-                .map(s -> toResponse(s, flagOffline))
+        return standings.stream()
+                .map(s -> toResponse(s, offlineMode))
                 .collect(Collectors.toList());
     }
 
+    private List<Standing> getStandingsFromClientCacheOrStatic(String leagueId) {
+
+        try {
+            List<Standing> standings = footballClient.getStandings(leagueId);
+            cacheStandings(leagueId, standings);
+            return standings;
+
+        } catch (Exception clientError) {
+            log.warn("Client API failed for leagueId={}, trying cache", leagueId, clientError);
+
+            List<Standing> cache = getStandingsFromCache(leagueId);
+            if (cache != null) {
+                log.info("Serving stale cache for leagueId={}", leagueId);
+                return cache;
+            }
+
+            log.warn("Cache unavailable for leagueId={}, using static data", leagueId);
+            return staticDataLoader.getStandings(leagueId);
+        }
+    }
+
+    private List<Standing> getStandingsFromCacheOrStatic(String leagueId) {
+
+        List<Standing> cache = getStandingsFromCache(leagueId);
+
+        if (cache != null) {
+            log.info("Offline mode: serving cache for leagueId={}", leagueId);
+            return cache;
+        }
+
+        log.info("Offline mode: cache miss, using static data for leagueId={}", leagueId);
+        return staticDataLoader.getStandings(leagueId);
+    }
+
+    private List<Standing> getStandingsFromCache(String leagueId) {
+        try {
+            return footballCache.getCachedStandings(leagueId);
+        } catch (Exception e) {
+            log.warn("Cache read failed for leagueId={}", leagueId, e);
+            return null;
+        }
+    }
+
+    private void cacheStandings(String leagueId, List<Standing> standings) {
+        try {
+            footballCache.cacheStandings(leagueId, standings);
+        } catch (Exception e) {
+            log.warn("Cache write failed for leagueId={}", leagueId, e);
+        }
+    }
 
 
     private StandingResponse toResponse(Standing s, boolean offlineMode) {

@@ -88,10 +88,9 @@ public class ApiFootballClient implements FootballClient{
             return body != null ? body : List.of();
         } catch (RestClientException e) {
             log.error("ApiFootBall HTTP call failed: {}", e.getMessage());
-            // Re-throw so Retry → CircuitBreaker can record the failure
+
             throw new RuntimeException("HTTP call failed for ApiFootBall", e);
         }catch (Exception ex){
-            ex.printStackTrace();
             throw new RuntimeException("HTTP call failed for ApiFootBall", ex);
         }
     }

@@ -16,10 +16,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Loads static bundled fallback JSON once at startup.
- * Used as last resort when offlineMode=true AND cache is empty.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -34,13 +30,13 @@ public class StaticDataLoader {
     @PostConstruct
     public void load() {
         try {
-            InputStream is = new ClassPathResource("offline/fallback-data.json").getInputStream();
-            JsonNode root = objectMapper.readTree(is);
+            InputStream fallBackData = new ClassPathResource("offline/fallback-data.json").getInputStream();
+            JsonNode root = objectMapper.readTree(fallBackData);
 
-            // Countries
             List<Country> countries = new ArrayList<>();
-            for (JsonNode n : root.get("countries"))
+            for (JsonNode n : root.get("countries")) {
                 countries.add(objectMapper.convertValue(n, Country.class));
+            }
             staticCountries = countries;
 
             staticLeagues   = root.get("leagues");
@@ -57,20 +53,32 @@ public class StaticDataLoader {
     }
 
     public List<League> getLeagues(String countryId) {
-        if (staticLeagues == null) return Collections.emptyList();
+        if (staticLeagues == null) {
+            return Collections.emptyList();
+        }
         JsonNode node = staticLeagues.get(countryId);
-        if (node == null) return Collections.emptyList();
-        List<League> list = new ArrayList<>();
-        for (JsonNode n : node) list.add(objectMapper.convertValue(n, League.class));
-        return list;
+        if (node == null) {
+            return Collections.emptyList();
+        }
+        List<League> leagues = new ArrayList<>();
+        for (JsonNode n : node) {
+            leagues.add(objectMapper.convertValue(n, League.class));
+        }
+        return leagues;
     }
 
     public List<Standing> getStandings(String leagueId) {
-        if (staticStandings == null) return Collections.emptyList();
+        if (staticStandings == null) {
+            return Collections.emptyList();
+        }
         JsonNode node = staticStandings.get(leagueId);
-        if (node == null) return Collections.emptyList();
-        List<Standing> list = new ArrayList<>();
-        for (JsonNode n : node) list.add(objectMapper.convertValue(n, Standing.class));
-        return list;
+        if (node == null) {
+            return Collections.emptyList();
+        }
+        List<Standing> standings = new ArrayList<>();
+        for (JsonNode n : node) {
+            standings.add(objectMapper.convertValue(n, Standing.class));
+        }
+        return standings;
     }
 }

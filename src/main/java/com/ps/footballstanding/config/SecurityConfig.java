@@ -21,18 +21,14 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll()
-                );
-                /*.authorizeHttpRequests(auth ->
+               .authorizeHttpRequests(auth ->
                         auth
                                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                                 .requestMatchers(
                                         "/swagger-ui/**",
                                         "/v3/api-docs/**",
                                         "/swagger-resources/**").permitAll().anyRequest().authenticated())
-                .httpBasic(httpBasic -> httpBasic.init(http));*/
-        ;
+                .httpBasic(httpBasic -> httpBasic.init(http));
 
         return http.build();
     }
