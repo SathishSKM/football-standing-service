@@ -31,9 +31,6 @@ class ApiFootballClientTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         client = new ApiFootballClient(restTemplate);
-        // Set fields via reflection since @Value is not processed in tests
-        // ...existing code...
-        // Use reflection to set apiUrl and apiKey for testing
         try {
             var apiUrlField = ApiFootballClient.class.getDeclaredField("apiUrl");
             apiUrlField.setAccessible(true);

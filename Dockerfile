@@ -5,8 +5,9 @@ COPY pom.xml .
 COPY src ./src
 RUN mvn clean package -DskipTests -s /root/.m2/settings.xml
 
-FROM eclipse-temurin:21-jre
+FROM amazoncorretto:21-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar football-standing-service.jar
 EXPOSE 8080
+ENV SPRING_PROFILES_ACTIVE=prod
 ENTRYPOINT ["java", "-jar", "football-standing-service.jar"]

@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: football-standing-service
+  jackson:
+    serialization:
+      FAIL_ON_EMPTY_BEANS: false
+  redis:
+    host: redis
+    port: 6379
+    timeout: 5000ms
+  cache:
+    type: redis
+  security:
+    user:
+      name: user
+      password: password
+  management:
+    endpoint:
+      health:
+        show-details: always
+    endpoints:
+      web:
+        exposure:
+          include: "*"
+    health:
+      circuitbreakers:
+        enabled: true
+  resilience4j:
+    circuitbreaker:
+      instances:
+        football-standings:
+          failureRateThreshold: 50
+          waitDurationInOpenState: 60s
+          permittedNumberOfCallsInHalfOpenState: 3
+          minimumNumberOfCalls: 5
+          slidingWindowType: COUNT_BASED
+          slidingWindowSize: 5
+          registerHealthIndicator: true
+    bulkhead:
+      instances:
+        football-standings:
+          maxConcurrentCalls: 5
+          maxWaitDuration: 500ms
+
+client:
+  api:
+    football:
+      url: https://apiv3.apifootball.com
+      key: 9bb66184e0c8145384fd2cc0f7b914ada57b4e8fd2e4d6d586adcc27c257a978
+      connect-timeout-ms: 5000
+      read-timeout-ms: 10000
