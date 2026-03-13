@@ -23,8 +23,6 @@ pipeline {
         stage('Deploy_DEV') {
             steps {
                 bat """
-                    docker stop %DEV_CONTAINER% || exit 0
-                    docker rm %DEV_CONTAINER% || exit 0
                     docker run -d --name %DEV_CONTAINER% -p %DEV_PORT%:8080 %IMAGE_NAME%
                 """
             }
@@ -39,8 +37,6 @@ pipeline {
         stage('Deploy_PROD') {
             steps {
                 bat """
-                    docker stop %PROD_CONTAINER% || exit 0
-                    docker rm %PROD_CONTAINER% || exit 0
                     docker run -d --name %PROD_CONTAINER% -p %PROD_PORT%:8080 %IMAGE_NAME%
                 """
             }
