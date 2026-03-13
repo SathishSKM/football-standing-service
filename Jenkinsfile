@@ -1,11 +1,14 @@
-
 pipeline {
     agent any
 
     environment {
         IMAGE_NAME = "football-standing-service"
-        CONTAINER_NAME = "football-standing-service"
-        APP_PORT = "8080"
+
+        DEV_CONTAINER = "football-standing-service-dev"
+        PROD_CONTAINER = "football-standing-service-prod"
+
+        DEV_PORT = "8080"
+        PROD_PORT = "8090"
     }
 
     stages {
@@ -13,20 +16,33 @@ pipeline {
         stage('Build') {
             steps {
                 git url: 'https://github.com/SathishSKM/football-standing-service.git', branch: 'main'
-                bat "docker build -t ${IMAGE_NAME} ."
+                bat "docker build -t %IMAGE_NAME% ."
             }
         }
-        stage('Destroy') {
+
+        stage('Deploy_DEV') {
             steps {
                 bat """
-                    docker stop ${CONTAINER_NAME} || exit 0
-                    docker rm ${CONTAINER_NAME} || exit 0
+                    docker stop %DEV_CONTAINER% || exit 0
+                    docker rm %DEV_CONTAINER% || exit 0
+                    docker run -d --name %DEV_CONTAINER% -p %DEV_PORT%:8080 %IMAGE_NAME%
                 """
             }
         }
-        stage('Deploy') {
+
+        stage('Approval_PROD') {
             steps {
-                bat "docker run -d --name ${CONTAINER_NAME} -p ${APP_PORT}:${APP_PORT} ${IMAGE_NAME}"
+                input message: 'Deploy to Production?', ok: 'Deploy'
+            }
+        }
+
+        stage('Deploy_PROD') {
+            steps {
+                bat """
+                    docker stop %PROD_CONTAINER% || exit 0
+                    docker rm %PROD_CONTAINER% || exit 0
+                    docker run -d --name %PROD_CONTAINER% -p %PROD_PORT%:8080 %IMAGE_NAME%
+                """
             }
         }
     }
