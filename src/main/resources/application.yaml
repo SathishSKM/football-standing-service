@@ -14,33 +14,39 @@ spring:
     user:
       name: user
       password: password
-  management:
-    endpoint:
-      health:
-        show-details: always
-    endpoints:
-      web:
-        exposure:
-          include: "*"
+
+management:
+  endpoint:
     health:
-      circuitbreakers:
-        enabled: true
-  resilience4j:
-    circuitbreaker:
-      instances:
-        football-standings:
-          failureRateThreshold: 50
-          waitDurationInOpenState: 60s
-          permittedNumberOfCallsInHalfOpenState: 3
-          minimumNumberOfCalls: 5
-          slidingWindowType: COUNT_BASED
-          slidingWindowSize: 5
-          registerHealthIndicator: true
-    bulkhead:
-      instances:
-        football-standings:
-          maxConcurrentCalls: 5
-          maxWaitDuration: 500ms
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+          include: "*"
+  health:
+    circuitbreakers:
+      enabled: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      football-standings:
+        register-health-indicator: true
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 60s
+        permitted-number-of-calls-in-half-open-state: 1
+        minimum-number-of-calls: 2
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 2
+  bulkhead:
+    instances:
+      football-standings:
+        max-concurrent-calls: 5
+        max-wait-duration: 500ms
+
+logging:
+  level:
+    io.github.resilience4j: DEBUG
 
 client:
   api:

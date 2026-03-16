@@ -48,7 +48,7 @@ public class StandingsService {
         }
 
         if (offlineMode) {
-            log.info("getCountries: offline + cache miss — using static data");
+            log.info("getCountries: offline and cache missed using static data");
             return staticDataLoader.getCountries();
         }
 
@@ -63,8 +63,6 @@ public class StandingsService {
     }
 
     public List<League> getLeaguesByCountry(String countryId, Boolean offlineMode) {
-
-
         if (countryId == null) {
             return List.of();
         }
@@ -80,7 +78,7 @@ public class StandingsService {
         }
 
         if (offlineMode) {
-            log.info("getLeagues: offline + cache miss — using static data for countryId={}", countryId);
+            log.info("getLeagues: offline and cache missed using static data for countryId={}", countryId);
             return staticDataLoader.getLeagues(countryId);
         }
 
@@ -141,10 +139,10 @@ public class StandingsService {
         } catch (Exception clientError) {
             log.warn("Client API failed for leagueId={}, trying cache", leagueId, clientError);
 
-            List<Standing> cache = getStandingsFromCache(leagueId);
-            if (cache != null) {
+            List<Standing> standingsFromCache = getStandingsFromCache(leagueId);
+            if (standingsFromCache != null) {
                 log.info("Serving stale cache for leagueId={}", leagueId);
-                return cache;
+                return standingsFromCache;
             }
 
             log.warn("Cache unavailable for leagueId={}, using static data", leagueId);
@@ -154,11 +152,11 @@ public class StandingsService {
 
     private List<Standing> getStandingsFromCacheOrStatic(String leagueId) {
 
-        List<Standing> cache = getStandingsFromCache(leagueId);
+        List<Standing> standingsFromCache = getStandingsFromCache(leagueId);
 
-        if (cache != null) {
+        if (standingsFromCache != null) {
             log.info("Offline mode: serving cache for leagueId={}", leagueId);
-            return cache;
+            return standingsFromCache;
         }
 
         log.info("Offline mode: cache miss, using static data for leagueId={}", leagueId);

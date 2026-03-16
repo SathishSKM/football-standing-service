@@ -38,29 +38,26 @@ public class ApiFootballClient implements FootballClient{
 
 
     @Override
-    @CircuitBreaker(name = "football-leagues")
-    @Bulkhead(name ="football-leagues", type = Bulkhead.Type.SEMAPHORE)
-    public List<Country> getCountries() {
-        log.info("Fetching countries");
-        return exchange(buildUrl("get_countries"), new ParameterizedTypeReference<>() {});
-    }
-
-    @Override
-    @CircuitBreaker(name = "football-leagues")
-    @Bulkhead(name ="football-leagues", type = Bulkhead.Type.SEMAPHORE)
+    @CircuitBreaker(name = "football-standings")
+    @Bulkhead(name ="football-standings", type = Bulkhead.Type.SEMAPHORE)
     public List<Standing> getStandings(String leagueId) {
         log.info("Fetching standings for leagueId={}", leagueId);
         return exchange(buildUrl("get_standings", "league_id", leagueId),
                 new ParameterizedTypeReference<>() {});
     }
 
-    @CircuitBreaker(name = "football-leagues")
-    @Bulkhead(name ="football-leagues", type = Bulkhead.Type.SEMAPHORE)
+
     @Override
     public List<League> getLeaguesByCountry(String countryId) {
         log.info("Fetching leagues for countryId={}", countryId);
         return exchange(buildUrl("get_leagues", "country_id", countryId),
                 new ParameterizedTypeReference<>() {});
+    }
+
+    @Override
+    public List<Country> getCountries() {
+        log.info("Fetching countries");
+        return exchange(buildUrl("get_countries"), new ParameterizedTypeReference<>() {});
     }
 
     private String buildUrl(String action) {
@@ -84,12 +81,14 @@ public class ApiFootballClient implements FootballClient{
         try {
             ResponseEntity<List<T>> response = restTemplate.exchange(
                     url, HttpMethod.GET, null, responseType);
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new RuntimeException("ApiFootball returned non-success status: "
+                        + response.getStatusCode());
+            }
+
             List<T> body = response.getBody();
             return body != null ? body : List.of();
-        } catch (RestClientException e) {
-            log.error("ApiFootBall HTTP call failed: {}", e.getMessage());
-
-            throw new RuntimeException("HTTP call failed for ApiFootBall", e);
         }catch (Exception ex){
             throw new RuntimeException("HTTP call failed for ApiFootBall", ex);
         }
